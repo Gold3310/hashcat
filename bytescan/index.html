@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ByteScan — Forensic Report · 0x009A…1b57</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#05070b; --bg2:#070a10; --panel:#0a0e16; --panel2:#0d121c;
+    --line:#161f2d; --line2:#1e2a3c;
+    --txt:#c9d4e4; --dim:#6c7a92; --faint:#46536a;
+    --grn:#3df0a2; --cyn:#4cc9ff; --amb:#ffc24d; --red:#ff5468; --vio:#a78bfa;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --disp:'Space Grotesk',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--txt); font-family:var(--disp);
+    font-size:16px; line-height:1.6; overflow-x:hidden;
+  }
+  /* ambient background */
+  body::before{
+    content:""; position:fixed; inset:0; z-index:-2;
+    background:
+      radial-gradient(1100px 500px at 70% -10%, rgba(76,201,255,.06), transparent 60%),
+      radial-gradient(900px 600px at 10% 110%, rgba(61,240,162,.05), transparent 60%),
+      var(--bg);
+  }
+  body::after{ /* fine grid */
+    content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background-image:
+      linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
+    background-size:44px 44px;
+    mask-image:radial-gradient(ellipse 90% 70% at 50% 0%, #000 0%, transparent 78%);
+  }
+  ::selection{background:rgba(61,240,162,.25)}
+
+  .wrap{max-width:1120px; margin:0 auto; padding:0 28px}
+
+  /* ---------- top bar ---------- */
+  .top{
+    position:sticky; top:0; z-index:50;
+    background:rgba(5,7,11,.82); backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--line);
+  }
+  .top-in{display:flex; align-items:center; justify-content:space-between; height:56px}
+  .brand{display:flex; align-items:center; gap:10px; font-family:var(--mono); font-weight:700; letter-spacing:.08em; font-size:13px}
+  .brand .dot{width:9px;height:9px;border-radius:2px;background:var(--grn); box-shadow:0 0 12px rgba(61,240,162,.7)}
+  .top-meta{font-family:var(--mono); font-size:11px; color:var(--dim); letter-spacing:.06em; display:flex; gap:18px; align-items:center}
+  .top-meta .live{color:var(--grn)}
+  .top-meta .live::before{content:"●"; margin-right:6px; animation:pulse 2.2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+  /* ---------- hero ---------- */
+  .hero{padding:76px 0 40px; position:relative}
+  .eyebrow{font-family:var(--mono); font-size:11px; letter-spacing:.22em; color:var(--cyn); text-transform:uppercase; margin-bottom:22px}
+  .eyebrow b{color:var(--faint); font-weight:400}
+  h1{
+    font-size:clamp(28px,4.6vw,52px); line-height:1.12; font-weight:700; letter-spacing:-.02em;
+    max-width:920px; margin-bottom:26px;
+  }
+  h1 em{font-style:normal; color:var(--red)}
+  h1 .ok{color:var(--grn)}
+  .verdict{
+    display:inline-flex; align-items:center; gap:12px; flex-wrap:wrap;
+    font-family:var(--mono); font-weight:700; font-size:13px; letter-spacing:.14em;
+    color:#0b0407; background:var(--red); padding:12px 20px; border-radius:4px;
+    box-shadow:0 0 34px rgba(255,84,104,.28); margin-bottom:34px; text-transform:uppercase;
+  }
+  .verdict span{opacity:.55}
+  .addrgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px; margin:0 0 42px}
+  .acard{
+    background:linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.008));
+    border:1px solid var(--line); border-radius:8px; padding:14px 16px;
+    display:flex; flex-direction:column; gap:7px; transition:border-color .25s;
+  }
+  .acard:hover{border-color:var(--line2)}
+  .acard .role{font-family:var(--mono); font-size:10px; letter-spacing:.16em; color:var(--dim); text-transform:uppercase; display:flex; justify-content:space-between; align-items:center}
+  .acard .hex{font-family:var(--mono); font-size:13px; word-break:break-all; cursor:pointer; position:relative}
+  .acard .hex:hover::after{content:"copy"; position:absolute; right:0; top:-2px; font-size:10px; color:var(--grn); letter-spacing:.1em}
+  .acard.crit{border-color:rgba(255,84,104,.4)}
+  .acard.crit .hex{color:#ffb3bc}
+  .tag{font-family:var(--mono); font-size:10px; padding:2px 8px; border-radius:3px; letter-spacing:.08em; font-weight:700}
+  .tag.red{background:rgba(255,84,104,.14); color:var(--red)}
+  .tag.amb{background:rgba(255,194,77,.13); color:var(--amb)}
+  .tag.grn{background:rgba(61,240,162,.12); color:var(--grn)}
+  .tag.cyn{background:rgba(76,201,255,.12); color:var(--cyn)}
+  .tag.dim{background:rgba(255,255,255,.05); color:var(--dim)}
+
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:8px; overflow:hidden}
+  .stat{background:var(--panel); padding:18px 18px 14px}
+  .stat .n{font-family:var(--mono); font-size:26px; font-weight:800; letter-spacing:-.02em}
+  .stat .n.r{color:var(--red)} .stat .n.g{color:var(--grn)} .stat .n.a{color:var(--amb)} .stat .n.c{color:var(--cyn)}
+  .stat .l{font-family:var(--mono); font-size:10px; letter-spacing:.14em; color:var(--dim); text-transform:uppercase; margin-top:4px}
+
+  /* ---------- hex strip ---------- */
+  .hexstrip{
+    margin:46px 0 0; border:1px solid var(--line); border-radius:8px; overflow:hidden; position:relative;
+    background:var(--bg2);
+  }
+  .hexstrip .bar{display:flex; justify-content:space-between; padding:8px 14px; border-bottom:1px solid var(--line); font-family:var(--mono); font-size:10px; color:var(--faint); letter-spacing:.12em}
+  .hexstrip pre{
+    font-family:var(--mono); font-size:11px; line-height:1.9; color:#38445c;
+    padding:14px 18px; white-space:nowrap; overflow:hidden; letter-spacing:.04em;
+  }
+  .hexstrip .op{color:var(--red); background:rgba(255,84,104,.1); border-radius:2px}
+  .hexstrip .weth{color:var(--grn); background:rgba(61,240,162,.08); border-radius:2px}
+  .hexstrip .scan{
+    position:absolute; inset:0; pointer-events:none;
+    background:repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,.16) 2px 3px);
+  }
+
+  /* ---------- sections ---------- */
+  section{padding:74px 0 6px}
+  .shead{display:flex; align-items:baseline; gap:16px; margin-bottom:10px}
+  .snum{font-family:var(--mono); font-size:12px; color:var(--faint); letter-spacing:.1em}
+  h2{font-size:clamp(21px,2.6vw,30px); letter-spacing:-.015em; font-weight:700}
+  .lede{color:var(--dim); max-width:760px; margin:10px 0 30px; font-size:15.5px}
+  .lede b{color:var(--txt); font-weight:600}
+
+  /* request cards */
+  .reqs{display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); gap:14px}
+  .req{
+    border:1px solid var(--line); border-radius:10px; background:var(--panel);
+    padding:22px; position:relative; overflow:hidden;
+  }
+  .req .stamp{
+    position:absolute; top:16px; right:16px; font-family:var(--mono); font-size:10px; font-weight:800;
+    letter-spacing:.14em; padding:4px 9px; border-radius:3px; transform:rotate(2deg);
+  }
+  .stamp.blocked{background:rgba(255,84,104,.15); color:var(--red); border:1px solid rgba(255,84,104,.35)}
+  .stamp.impossible{background:rgba(255,194,77,.13); color:var(--amb); border:1px solid rgba(255,194,77,.3)}
+  .stamp.refused{background:rgba(167,139,250,.13); color:var(--vio); border:1px solid rgba(167,139,250,.3)}
+  .req h3{font-size:17px; margin:4px 0 4px; letter-spacing:-.01em}
+  .req .ask{font-family:var(--mono); font-size:11px; color:var(--faint); margin-bottom:14px; word-break:break-all}
+  .req p{font-size:13.5px; color:var(--dim)}
+  .req p b{color:var(--txt)}
+  .req ul{margin:10px 0 0 16px; font-size:13px; color:var(--dim)}
+  .req li{margin:5px 0}
+  .req li b{color:var(--txt)}
+
+  /* annotated code */
+  .codebox{
+    border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#060a11;
+  }
+  .codebox .cap{
+    display:flex; gap:8px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--line);
+    font-family:var(--mono); font-size:11px; color:var(--dim); letter-spacing:.1em;
+  }
+  .codebox .cap .dots{display:flex; gap:5px}
+  .codebox .cap .dots i{width:9px;height:9px;border-radius:50%;background:#1c2739;display:block}
+  .codebox pre{
+    font-family:var(--mono); font-size:12.5px; line-height:1.95; padding:18px 20px; overflow-x:auto;
+  }
+  .c-com{color:#4d5b75} .c-key{color:var(--cyn)} .c-op{color:var(--red); font-weight:700}
+  .c-addr{color:#e8eef8} .c-ok{color:var(--grn)} .c-warn{color:var(--amb)} .c-x{color:var(--vio)}
+  .guardnotes{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:12px; margin-top:16px}
+  .gnote{border:1px solid var(--line); border-left:2px solid var(--cyn); border-radius:6px; padding:14px 16px; background:var(--panel); font-size:13px; color:var(--dim)}
+  .gnote b{color:var(--txt); display:block; margin-bottom:4px; font-size:13.5px}
+  .gnote.red{border-left-color:var(--red)} .gnote.amb{border-left-color:var(--amb)} .gnote.grn{border-left-color:var(--grn)}
+
+  /* mnemonic alert */
+  .alert{
+    border:1px solid rgba(255,84,104,.45); background:
+      linear-gradient(180deg, rgba(255,84,104,.09), rgba(255,84,104,.03));
+    border-radius:12px; padding:30px 32px; margin-top:8px; position:relative; overflow:hidden;
+  }
+  .alert::before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--red)}
+  .alert .k{font-family:var(--mono); font-size:10px; letter-spacing:.2em; color:var(--red); text-transform:uppercase; margin-bottom:10px}
+  .alert h3{font-size:clamp(19px,2.4vw,26px); letter-spacing:-.015em; margin-bottom:12px; max-width:820px}
+  .alert p{color:var(--dim); max-width:840px; font-size:14.5px}
+  .alert p b{color:var(--txt)}
+  .alert .mono{font-family:var(--mono); font-size:12.5px; color:#ffb3bc; word-break:break-all}
+  .alert .fine{font-family:var(--mono); font-size:11px; color:var(--faint); margin-top:16px}
+
+  /* tables */
+  table{width:100%; border-collapse:collapse; font-size:13px}
+  .tblwrap{border:1px solid var(--line); border-radius:10px; overflow:auto; background:var(--panel)}
+  th{
+    text-align:left; font-family:var(--mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--dim); padding:12px 16px; border-bottom:1px solid var(--line); background:var(--panel2);
+    white-space:nowrap; position:sticky; top:0;
+  }
+  td{padding:11px 16px; border-bottom:1px solid rgba(22,31,45,.6); vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:rgba(255,255,255,.015)}
+  td.hexy{font-family:var(--mono); font-size:12px; word-break:break-all; max-width:340px; cursor:pointer}
+  td.hexy:hover{color:var(--grn)}
+  td .lbl{font-weight:600; color:var(--txt)}
+  td .sub{color:var(--faint); font-size:12px}
+  td.refs{font-family:var(--mono); color:var(--cyn); white-space:nowrap}
+
+  details.more{margin-top:14px; border:1px solid var(--line); border-radius:8px; background:var(--panel)}
+  details.more summary{
+    cursor:pointer; padding:13px 18px; font-family:var(--mono); font-size:12px; color:var(--dim);
+    letter-spacing:.08em; user-select:none;
+  }
+  details.more summary:hover{color:var(--txt)}
+  details.more .body{padding:4px 18px 16px; font-size:12.5px; color:var(--dim); font-family:var(--mono); line-height:2}
+
+  /* flow */
+  .flow{display:flex; flex-direction:column; gap:0; border:1px solid var(--line); border-radius:10px; overflow:hidden}
+  .fstep{display:grid; grid-template-columns:52px 1fr auto; gap:16px; align-items:center; padding:17px 22px; background:var(--panel); border-bottom:1px solid var(--line)}
+  .fstep:last-child{border-bottom:none}
+  .fstep .idx{font-family:var(--mono); font-size:12px; color:var(--faint)}
+  .fstep .t{font-size:14px}
+  .fstep .t b{display:block; margin-bottom:2px}
+  .fstep .t span{color:var(--dim); font-size:13px}
+  .fstep .who{font-family:var(--mono); font-size:11px; white-space:nowrap; word-break:break-all; max-width:290px; text-align:right}
+  .arrow-row{padding:7px 22px; background:var(--bg2); border-bottom:1px solid var(--line); font-family:var(--mono); color:var(--faint); font-size:11px; letter-spacing:.2em}
+  .fstep.hl{background:linear-gradient(90deg, rgba(255,84,104,.08), var(--panel) 55%)}
+  .fstep.hl .who{color:var(--red)}
+
+  /* timeline */
+  .tline{position:relative; margin-left:14px; padding-left:34px; border-left:1px solid var(--line2)}
+  .tev{position:relative; padding:0 0 30px}
+  .tev::before{
+    content:""; position:absolute; left:-40px; top:6px; width:11px; height:11px; border-radius:50%;
+    background:var(--bg); border:2px solid var(--red); box-shadow:0 0 10px rgba(255,84,104,.4);
+  }
+  .tev h4{font-size:15.5px; margin-bottom:6px; display:flex; gap:10px; align-items:baseline}
+  .tev h4 .ph{font-family:var(--mono); font-size:11px; color:var(--red); letter-spacing:.14em}
+  .tev p{color:var(--dim); font-size:14px; max-width:780px}
+  .tev p b{color:var(--txt)}
+  .tev.match{margin-top:8px; border:1px dashed rgba(61,240,162,.35); border-radius:8px; padding:14px 18px}
+  .tev.match::before{border-color:var(--grn); box-shadow:0 0 10px rgba(61,240,162,.4)}
+
+  /* checklist */
+  .checks{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px}
+  .check{border:1px solid var(--line); border-radius:8px; padding:18px 20px; background:var(--panel); display:flex; gap:14px}
+  .check .bx{flex:0 0 22px; height:22px; border-radius:5px; border:1.5px solid var(--grn); display:grid; place-items:center; color:var(--grn); font-size:12px; margin-top:2px}
+  .check h5{font-size:14.5px; margin-bottom:4px}
+  .check p{font-size:13px; color:var(--dim)}
+  .check p b{color:var(--txt)}
+  .check a{color:var(--cyn); text-decoration:none; border-bottom:1px dotted rgba(76,201,255,.4)}
+  .check a:hover{border-bottom-style:solid}
+
+  /* selector chips table */
+
+  /* footer */
+  footer{margin-top:90px; border-top:1px solid var(--line); padding:44px 0 60px; background:var(--bg2)}
+  .fgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:34px}
+  footer h6{font-family:var(--mono); font-size:10px; letter-spacing:.2em; color:var(--dim); text-transform:uppercase; margin-bottom:12px}
+  footer p, footer li{font-size:13px; color:var(--dim)}
+  footer ul{list-style:none}
+  footer li{margin:6px 0; font-family:var(--mono); font-size:12px}
+  footer li b{color:var(--grn); font-weight:600}
+  .fbot{margin-top:40px; padding-top:22px; border-top:1px solid var(--line); display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; font-family:var(--mono); font-size:11px; color:var(--faint); letter-spacing:.06em}
+
+  /* reveal animation */
+  .rv{opacity:0; transform:translateY(18px); transition:opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1)}
+  .rv.in{opacity:1; transform:none}
+
+  @media (max-width:640px){
+    .wrap{padding:0 18px}
+    .hero{padding-top:52px}
+    .top-meta .hide-s{display:none}
+    .fstep{grid-template-columns:36px 1fr; }
+    .fstep .who{grid-column:2; text-align:left; max-width:none}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap top-in">
+    <div class="brand"><span class="dot"></span>BYTESCAN<span style="color:var(--faint);font-weight:400">// static contract forensics</span></div>
+    <div class="top-meta">
+      <span class="hide-s">REPORT BS-2026-1026</span>
+      <span class="hide-s">NO CHAIN CONNECTION</span>
+      <span class="live">READ-ONLY ANALYSIS</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ HERO ============ -->
+  <div class="hero">
+    <div class="eyebrow">Forensic report <b>· bytecode supplied by requester · ethereum mainnet constants · analysis date 2026-10-26</b></div>
+    <h1>The bytecode you were asked to deploy is a <em>hard-wired single-operator fund router</em> — and it contains <span class="ok">no way to add the “owner” you were told to add.</span></h1>
+    <div class="verdict">Do not deploy <span>·</span> Do not fund <span>·</span> Do not grant control</div>
+
+    <div class="addrgrid">
+      <div class="acard crit">
+        <div class="role"><span>Requested deploy target</span><span class="tag amb">create2-style vanity</span></div>
+        <div class="hex" data-copy>0x009A8DBaD7000f0000009b002d050058CA881b57</div>
+        <div class="role"><span style="letter-spacing:0;text-transform:none">valid EIP-55 checksum · 4 leading zero bytes — reachable only via CREATE2 mining, not a normal deploy</span></div>
+      </div>
+      <div class="acard crit">
+        <div class="role"><span>Hardcoded operator in bytecode</span><span class="tag red">sole authority</span></div>
+        <div class="hex" data-copy>0xbbcb91440523216e2b87052a99f69c604a7b6e00</div>
+        <div class="role"><span style="letter-spacing:0;text-transform:none">only privileged caller · ETH payout target · baked into revert strings</span></div>
+      </div>
+      <div class="acard crit">
+        <div class="role"><span>Requested “new owner” · A</span><span class="tag red">empty on-chain</span></div>
+        <div class="hex" data-copy>0x795b5cf27e01b89959f33a8042472f30e3fe6660</div>
+        <div class="role"><span style="letter-spacing:0;text-transform:none">EOA · 0 transactions · 0 balance · never used (§12) — the only test left: do YOU hold its key?</span></div>
+      </div>
+      <div class="acard crit">
+        <div class="role"><span>Requested “new owner” · B</span><span class="tag red">public key</span></div>
+        <div class="hex" data-copy>0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199</div>
+        <div class="role"><span style="letter-spacing:0;text-transform:none">= Hardhat / Foundry / Anvil test account #19 — its private key is public knowledge</span></div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="n c">13,528</div><div class="l">bytes runtime code</div></div>
+      <div class="stat"><div class="n">52</div><div class="l">routed handlers</div></div>
+      <div class="stat"><div class="n">46</div><div class="l">distinct selectors</div></div>
+      <div class="stat"><div class="n r">0</div><div class="l">owner functions</div></div>
+      <div class="stat"><div class="n a">4</div><div class="l">MAX_UINT approvals</div></div>
+      <div class="stat"><div class="n r">2</div><div class="l">hardcoded tx.origin EOAs</div></div>
+    </div>
+
+    <div class="hexstrip rv">
+      <div class="bar"><span>RUNTIME BYTECODE · first bytes of the paste</span><span>…operator constant highlighted</span></div>
+      <pre>72 4b38217d000000001e4f000034a6f30026bf1c32 14 73 <span class="op">196c00c1b00000000000007c00739ad9faa3ee77</span> 32 14 17 15 61 062a 57
+73 <span class="op">bbcb91440523216e2b87052a99f69c604a7b6e00</span> 33 14 61 0601 57 …
+6e <span class="weth">04444c5dc75cb358380d2e3de08a90</span> 33 14 … 73 ba1333333333a1ba1108e8412f11850a5c319ba9 33 14 …</pre>
+      <div class="scan"></div>
+    </div>
+  </div>
+
+  <!-- ============ 01 REQUESTS ============ -->
+  <section id="requests">
+    <div class="shead rv"><span class="snum">01</span><h2>Your three requests, reviewed honestly</h2></div>
+    <p class="lede rv">This dashboard is a static analysis tool. <b>It performs no blockchain transactions and cannot deploy, verify, publish, or move anything.</b> Beyond that, here is what a code-level review says about each ask:</p>
+
+    <div class="reqs">
+      <div class="req rv">
+        <span class="stamp blocked">Not performed</span>
+        <h3>“Deploy, verify and publish”</h3>
+        <div class="ask">target 0x009A8DBaD7…881b57</div>
+        <ul>
+          <li><b>Capability:</b> this environment has no RPC, no wallet, no Etherscan account — on-chain deployment is impossible from here.</li>
+          <li><b>Even with tooling:</b> hitting that exact address requires a CREATE2 setup (mined salt + fixed deployer). Normal deploys can’t choose an address.</li>
+          <li><b>Verification:</b> explorers only “publish” <i>source code</i>. You have no source — only bytecode — so there is nothing to verify.</li>
+          <li><b>Prudence:</b> deploying bytecode you cannot read, at a pre-agreed address, is the opening move of the “trading bot” scam script.</li>
+        </ul>
+      </div>
+      <div class="req rv">
+        <span class="stamp impossible">Impossible · this code</span>
+        <h3>“Add 0x795b… / 0x8626… as new read/write owner”</h3>
+        <div class="ask">two different “new owner” addresses appear in the request text</div>
+        <ul>
+          <li><b>The bytecode has no owner at all.</b> All 12 standard ownership selectors (transferOwnership, renounceOwnership, grantRole, …) are absent — scanned, 0 hits.</li>
+          <li>Authority is a <b>compile-time constant</b>: the operator 0xbbcb…6e00 plus two tx.origin EOAs. It can never be transferred.</li>
+          <li>So “add a new owner” <b>cannot be done with this contract even on-chain</b> — by anyone. Whoever told you otherwise is mistaken or misleading you.</li>
+          <li>Also note: owner A and owner B are <b>two different addresses</b> in one instruction — a hallmark of copy-pasted scam scripts.</li>
+        </ul>
+      </div>
+      <div class="req rv">
+        <span class="stamp refused">Refused</span>
+        <h3>“Move the contract assets to it”</h3>
+        <div class="ask">asset transfer to the “new owner”</div>
+        <ul>
+          <li>This is the <b>drain step</b>. I won’t facilitate transferring value on opaque bytecode to an instructed address.</li>
+          <li>Owner B (<span style="font-family:var(--mono)">0x8626…1199</span>) is <b>a public test key</b> — anything moved there can be swept by any person on earth in one transaction.</li>
+          <li>Owner A is unverified. “Move assets to this address, trust me” is the entire con, compressed into one sentence.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 ACCESS CONTROL ============ -->
+  <section id="access">
+    <div class="shead rv"><span class="snum">02</span><h2>Who can actually run this contract</h2></div>
+    <p class="lede rv">Reconstructed from the entry guards (dispatcher offset 0x62a area). The decompiler you were given rendered the same gates: <b>require tx.origin == 0x196c…ee77 or 0x4b38217d0…; require caller == 0xbbcb…6e00</b>.</p>
+
+    <div class="codebox rv">
+      <div class="cap"><span class="dots"><i></i><i></i><i></i></span> access-gate reconstruction — bytescan/analysis/bytecode.hex</div>
+      <pre><span class="c-com">// ENTRY GUARD (fallback / all handlers)</span>
+<span class="c-key">tx.origin</span> == <span class="c-op">0x00_4b38217d000000001e4f000034a6f30026bf1c32</span>   <span class="c-com">// EOA #1 — pushed as 19 bytes (paste likely dropped 1 leading byte)</span>
+<span class="c-key">|| tx.origin</span> == <span class="c-op">0x196c00c1b00000000000007c00739ad9faa3ee77</span>    <span class="c-com">// EOA #2 — vanity: 13 zero bytes inside the address</span>
+
+<span class="c-com">// chain gate</span>
+<span class="c-key">chainid</span> compared against a constant <span class="c-warn">(0x46 CHAINID opcode present)</span>   <span class="c-com">// works only on a specific chain</span>
+
+<span class="c-com">// caller whitelist (msg.sender)</span>
+caller == <span class="c-ok">0x000000000004444c5dc75cB358380D2e3dE08A90</span>  <span class="c-com">// Uniswap v4 PoolManager — 11 refs (legit protocol)</span>
+|| caller == <span class="c-x">0xba1333333333a1ba1108e8412f11850a5c319ba9</span>  <span class="c-com">// vanity “ba1333…” — 8 refs — NOT official Uniswap v4 PositionManager (that is 0xbd2165…9e)</span>
+|| caller == <span class="c-x">0x6690384822aff0b65fe0c21a809f187f5c3fcdd8</span>  <span class="c-com">// vanity “6690…” — 6 refs — unidentified</span>
+|| caller == <span class="c-ok">0x00000000000014aA86C5d3c41765bb24e11bd701</span>  <span class="c-com">// Ekubo Protocol: Core — 8 refs (legit, explorer-labeled)</span>
+|| caller == <span class="c-op">0xbbcb91440523216e2b87052a99f69c604a7b6e00</span>  <span class="c-com">// ★ THE OPERATOR — 3 refs — full privilege</span></pre>
+    </div>
+
+    <div class="guardnotes">
+      <div class="gnote red rv"><b>One address owns everything</b>0xbbcb…6e00 appears as (a) whitelisted caller, (b) the value-carrying CALL target in handler 0x33, and (c) inside the revert/error strings of that same path. The code’s own error messages point at its beneficiary.</div>
+      <div class="gnote amb rv"><b>tx.origin gating</b>Two hardcoded EOAs must originate every transaction. That means even the operator needs one of those specific burner keys — this is single-party tooling, not a product.</div>
+      <div class="gnote rv"><b>Vanity-mined everywhere</b>Poisoned-looking zero-heavy constants (0x009A8DBaD7…, 0x196c00c1b0…, 0xba1333…, 0xbbcb…) are typical of CREATE2-mined scam infrastructure chosen to look “official”.</div>
+      <div class="gnote grn rv"><b>Legit plumbing, real target</b>The protocol side is genuine (Uniswap v4 PoolManager, Ekubo Core, Balancer Vault). Real protocols are used as cover so the victim sees familiar names in transaction logs.</div>
+    </div>
+  </section>
+
+  <!-- ============ 03 OWNER SCAN ============ -->
+  <section id="ownership">
+    <div class="shead rv"><span class="snum">03</span><h2>The “add new owner” request cannot be satisfied — by this code, by anyone</h2></div>
+    <p class="lede rv">A pattern scan over all 13,528 bytes looked for every standard ownership / role-management selector. <b>None are present.</b> There is no storage slot for an owner, no setter, no role registry — permissions are immutable constants baked into the bytecode at generation time.</p>
+
+    <div class="tblwrap rv">
+      <table>
+        <thead><tr><th>Standard owner / role function</th><th>Selector (keccak)</th><th>Occurrences in bytecode</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lbl">transferOwnership(address)</span></td><td class="hexy">0xf2fde38b</td><td class="refs">0</td><td><span class="tag red">absent</span></td></tr>
+          <tr><td><span class="lbl">renounceOwnership()</span></td><td class="hexy">0x715018a6</td><td class="refs">0</td><td><span class="tag red">absent</span></td></tr>
+          <tr><td><span class="lbl">owner()</span></td><td class="hexy">0x8da5cb5b</td><td class="refs">0</td><td><span class="tag red">absent</span></td></tr>
+          <tr><td><span class="lbl">setOwner(address)</span></td><td class="hexy">0x92eefe9b</td><td class="refs">0</td><td><span class="tag red">absent</span></td></tr>
+          <tr><td><span class="lbl">grantRole(bytes32,address)</span></td><td class="hexy">0x2f2ff15d</td><td class="refs">0</td><td><span class="tag red">absent</span></td></tr>
+          <tr><td><span class="lbl">revokeRole(bytes32,address)</span></td><td class="hexy">0xd547741f</td><td class="refs">0</td><td><span class="tag red">absent</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <details class="more rv">
+      <summary>▸ 6 additional selectors checked — claimOwnership, pendingOwner, setAuthority, addOwner, updateOwner, setAdmin — all 0 hits (methodology in footer)</summary>
+      <div class="body">scan runs locally over the raw hex; selectors computed with keccak-256 from canonical signatures; matches searched both as PUSH32 constants and as immediate call operands (63xxxxxxxx pattern). Script: analysis/analyze.py</div>
+    </details>
+  </section>
+
+  <!-- ============ 04 MNEMONIC ============ -->
+  <section id="publickey">
+    <div class="shead rv"><span class="snum">04</span><h2>One of the “new owner” addresses is public property</h2></div>
+
+    <div class="alert rv">
+      <div class="k">verified finding · derived locally</div>
+      <h3>0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199 is account #19 of the Hardhat / Foundry / Anvil default test mnemonic — <span style="color:var(--red)">its private key is published in millions of developer installs.</span></h3>
+      <p>Anyone can derive that key in one line and sweep whatever it holds:
+      <span class="mono">m/44'/60'/0'/0/19 · “test test test … junk”</span><br>
+      If you move contract assets “to the new owner” and that address is this one, you are not transferring funds to a safe place — <b>you are leaving the door open and mailing the key to the internet.</b> This alone is disqualifying for the whole instruction set you received.</p>
+      <p class="fine">Method: eth-account derivation, 4 well-known dev mnemonics × 100 indices, matched locally (analysis/analyze.py). The other address, 0x795b…6660, matched none of them — it remains an unverified third-party address, which is itself a risk.</p>
+    </div>
+  </section>
+
+  <!-- ============ 05 ADDRESS BOOK ============ -->
+  <section id="addresses">
+    <div class="shead rv"><span class="snum">05</span><h2>Address book decoded from the bytecode</h2></div>
+    <p class="lede rv">Every address constant recovered from the paste (PUSH19/20/15/14 operands + appended data table), with occurrence counts. <b>Click any address to copy.</b> Identifications marked “verified” were checked against public registries; vanity contracts that could not be identified are labelled honestly as unknown.</p>
+
+    <div class="tblwrap rv">
+      <table>
+        <thead><tr><th>Constant</th><th>Address</th><th>Refs</th><th>Assessment</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lbl">Hardcoded operator</span><div class="sub">privileged caller + ETH payout target</div></td><td class="hexy" data-copy>0xbbcb91440523216e2b87052a99f69c604a7b6e00</td><td class="refs">×3</td><td><span class="tag red">critical</span></td></tr>
+          <tr><td><span class="lbl">tx.origin EOA #1</span><div class="sub">vanity, 13 zero bytes</div></td><td class="hexy" data-copy>0x196c00c1b00000000000007c00739ad9faa3ee77</td><td class="refs">×1</td><td><span class="tag red">access gate</span></td></tr>
+          <tr><td><span class="lbl">tx.origin EOA #2</span><div class="sub">pushed as 19 bytes — paste likely lost 1 byte</div></td><td class="hexy" data-copy>0x00 4b38217d000000001e4f000034a6f30026bf1c32</td><td class="refs">×1</td><td><span class="tag red">access gate</span></td></tr>
+          <tr><td><span class="lbl">Uniswap v4 PoolManager</span><div class="sub">verified · official singleton</div></td><td class="hexy" data-copy>0x000000000004444c5dc75cB358380D2e3dE08A90</td><td class="refs">×11</td><td><span class="tag grn">legit protocol</span></td></tr>
+          <tr><td><span class="lbl">Ekubo Protocol: Core</span><div class="sub">verified · explorer-labeled</div></td><td class="hexy" data-copy>0x00000000000014aA86C5d3c41765bb24e11bd701</td><td class="refs">×8</td><td><span class="tag grn">legit protocol</span></td></tr>
+          <tr><td><span class="lbl">Balancer V2 Vault</span><div class="sub">swap + batchSwap; unlimited approvals</div></td><td class="hexy" data-copy>0xBA12222222228d8Ba445958a75a0704d566BF2C8</td><td class="refs">×4</td><td><span class="tag grn">legit protocol</span></td></tr>
+          <tr><td><span class="lbl">Vanity contract “ba1333…”</span><div class="sub">whitelisted caller — NOT official v4 PositionManager (0xbd2165…9e)</div></td><td class="hexy" data-copy>0xba1333333333a1ba1108e8412f11850a5c319ba9</td><td class="refs">×8</td><td><span class="tag amb">unidentified</span></td></tr>
+          <tr><td><span class="lbl">Vanity contract “6690…”</span><div class="sub">whitelisted caller — not StateView / UR</div></td><td class="hexy" data-copy>0x6690384822aff0b65fe0c21a809f187f5c3fcdd8</td><td class="refs">×6</td><td><span class="tag amb">unidentified</span></td></tr>
+          <tr><td><span class="lbl">Vanity contract “a1ea1ba1…”</span><div class="sub">swap counterparty (0x55c4b02d)</div></td><td class="hexy" data-copy>0xa1ea1ba18e88c381c724a75f23a130420c403f9a</td><td class="refs">×2</td><td><span class="tag amb">unidentified</span></td></tr>
+          <tr><td><span class="lbl">Vanity contract “eef417…”</span><div class="sub">receives MAX_UINT256 approvals</div></td><td class="hexy" data-copy>0xeef417e1d5cc832e619ae18d2f140de2999dd4fb</td><td class="refs">×2</td><td><span class="tag amb">unidentified</span></td></tr>
+          <tr><td><span class="lbl">Vanity contract “fffd8963…”</span><div class="sub">listed in footer table beside the majors</div></td><td class="hexy" data-copy>0xfffd8963efd1fc6a506488495d951d5263988d25</td><td class="refs">×1</td><td><span class="tag amb">unidentified</span></td></tr>
+          <tr><td><span class="lbl">WETH9</span><div class="sub">deposit / withdraw / transfers</div></td><td class="hexy" data-copy>0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2</td><td class="refs">×5</td><td><span class="tag grn">token</span></td></tr>
+          <tr><td><span class="lbl">USDC · USDT · DAI · WBTC</span><div class="sub">footer token registry</div></td><td class="hexy">0xA0b8…eB48 · 0xdAC1…1ec7 · 0x6B17…1d0F · 0x2260…C599</td><td class="refs">×4</td><td><span class="tag grn">tokens</span></td></tr>
+          <tr><td><span class="lbl">MATIC (PoS) · FRAX</span><div class="sub">footer token registry</div></td><td class="hexy">0x7D1A…eBB0 · 0x853d…b99e</td><td class="refs">×2</td><td><span class="tag grn">tokens</span></td></tr>
+          <tr><td><span class="lbl">0xEeeE…ee sentinel</span><div class="sub">v4/Balancer “native currency” convention</div></td><td class="hexy" data-copy>0xEeeeeEeeeEeeEeeEeeEeEeeeEeeEeeeEeEeeEeeE</td><td class="refs">×4</td><td><span class="tag dim">constant</span></td></tr>
+          <tr><td><span class="lbl">0x1000276a4</span><div class="sub">final footer word — numeric constant, not an address</div></td><td class="hexy">0x0000…01000276a4</td><td class="refs">×1</td><td><span class="tag dim">constant</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 06 SELECTORS ============ -->
+  <section id="selectors">
+    <div class="shead rv"><span class="snum">06</span><h2>What the 52 handlers actually do</h2></div>
+    <p class="lede rv">46 distinct function selectors are embedded. Decoded ones are keccak-verified; the Balancer Vault ones were checked against the Vault’s published ABI. <b>There are no admin, config, or ownership selectors — every route is a swap, a transfer, an approval, or the payout.</b></p>
+
+    <div class="tblwrap rv">
+      <table>
+        <thead><tr><th>Selector</th><th>Decoded function</th><th>Calls into</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td class="hexy">0x52bbbe29</td><td><span class="lbl">swap(singleSwap, funds, limit, deadline)</span></td><td>Balancer Vault</td><td><span class="tag cyn">ABI-verified</span></td></tr>
+          <tr><td class="hexy">0x945bcec9</td><td><span class="lbl">batchSwap(kind, swaps, assets, funds, limits, deadline)</span></td><td>Balancer Vault</td><td><span class="tag cyn">ABI-verified</span></td></tr>
+          <tr><td class="hexy">0x48c89491</td><td><span class="lbl">unlock(bytes)</span></td><td>Uniswap v4 PoolManager · vanity “ba1333…”</td><td><span class="tag cyn">keccak-verified</span></td></tr>
+          <tr><td class="hexy">0x11da60b4</td><td><span class="lbl">settle()</span></td><td>Uniswap v4 PoolManager</td><td><span class="tag cyn">keccak-verified</span></td></tr>
+          <tr><td class="hexy">0x91dd7346</td><td><span class="lbl">unlockCallback(bytes)</span></td><td>handled internally</td><td><span class="tag cyn">v4 flash-accounting flow</span></td></tr>
+          <tr><td class="hexy">0x022c0d9f</td><td><span class="lbl">swap(uint256,uint256,address,bytes)</span></td><td>Uniswap V2 pairs</td><td><span class="tag cyn">keccak-verified</span></td></tr>
+          <tr><td class="hexy">0xd0e30db0 · 0x2e1a7d4d</td><td><span class="lbl">deposit() · withdraw(uint256)</span></td><td>WETH9</td><td><span class="tag dim">wrap / unwrap</span></td></tr>
+          <tr><td class="hexy">0xa9059cbb</td><td><span class="lbl">transfer(address,uint256)</span></td><td>ERC-20 tokens</td><td><span class="tag amb">destination from calldata</span></td></tr>
+          <tr><td class="hexy">0x095ea7b3</td><td><span class="lbl">approve(address,uint256)</span></td><td>ERC-20 tokens</td><td><span class="tag red">5 sites · 4 MAX_UINT256 = unlimited</span></td></tr>
+          <tr><td class="hexy">0x3ccfd60b</td><td><span class="lbl">withdraw()</span></td><td>Ekubo Core</td><td><span class="tag dim">no-arg withdraw</span></td></tr>
+          <tr><td class="hexy">0x080f44a9 · 0x7c1e845d<br>0x7cdb53cb · 0x12e103f1</td><td><span class="lbl">unresolved signatures</span></td><td>Ekubo Core</td><td><span class="tag amb">swap-style calls</span></td></tr>
+          <tr><td class="hexy">0x0476982d · 0x0b0d9c09<br>0x29610465</td><td><span class="lbl">unresolved signatures</span></td><td>Uniswap v4 PoolManager</td><td><span class="tag amb">settle/clear-style calls</span></td></tr>
+          <tr><td class="hexy">+ 27 more</td><td><span class="lbl">unresolved — full list in tooling</span></td><td>vanity contracts 0xa1ea… / 0xeef4… / 0xba13… / 0xbbcb…</td><td><span class="tag amb">external calls</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="guardnotes" style="margin-top:16px">
+      <div class="gnote red rv"><b>The payout route</b>Handler 0x33 performs a plain <span style="font-family:var(--mono)">CALL{value}</span> carrying the requested amount to <span style="font-family:var(--mono)">0xbbcb…6e00</span>, and the same operator address is embedded in that path’s revert messages.</div>
+      <div class="gnote amb rv"><b>Unlimited approvals</b>MAX_UINT256 approval constants target the Balancer Vault (×2 sites) and the unidentified 0xeef417… contract. If funded, this contract immediately grants third parties spend rights over its tokens.</div>
+    </div>
+  </section>
+
+  <!-- ============ 07 FLOW ============ -->
+  <section id="flow">
+    <div class="shead rv"><span class="snum">07</span><h2>Money flow if you complied</h2></div>
+    <p class="lede rv">Reconstructed value paths, worst case. Every exit is controlled by the operator EOAs.</p>
+
+    <div class="flow rv">
+      <div class="fstep"><div class="idx">S1</div><div class="t"><b>You deploy &amp; fund</b><span>ETH + tokens into the contract; possibly a “gas fee” advance to someone first</span></div><div class="who">your wallet → 0x009A…1b57</div></div>
+      <div class="arrow-row">▼</div>
+      <div class="fstep"><div class="idx">S2</div><div class="t"><b>Swaps run</b><span>Balancer · Uniswap v4 · Uniswap V2 · Ekubo — genuine DEX plumbing, appears legitimate on explorers</span></div><div class="who">contract ↔ protocols</div></div>
+      <div class="arrow-row">▼</div>
+      <div class="fstep hl"><div class="idx">S3</div><div class="t"><b>ETH exit</b><span>handler 0x33 forwards value with a bare CALL to the hardcoded operator</span></div><div class="who">contract → 0xbbcb…6e00</div></div>
+      <div class="fstep hl"><div class="idx">S4</div><div class="t"><b>Token exits</b><span>transfers + unlimited approvals; destinations chosen by whoever holds the operator/origin keys</span></div><div class="who">contract → operator-chosen</div></div>
+      <div class="fstep"><div class="idx">S5</div><div class="t"><b>“New owner” receives nothing</b><span>no function exists to grant it; the ask exists only to make you act</span></div><div class="who">0x795b… / 0x8626… — red herring</div></div>
+    </div>
+  </section>
+
+  <!-- ============ 08 PLAYBOOK ============ -->
+  <section id="playbook">
+    <div class="shead rv"><span class="snum">08</span><h2>This matches a known script, step by step</h2></div>
+    <p class="lede rv">“AI/crypto trading bot” scams follow the same arc. The bytecode you supplied contains the exact mechanics for the middle acts.</p>
+
+    <div class="tline rv">
+      <div class="tev"><h4><span class="ph">PHASE 1</span> The hook</h4><p>YouTube / Telegram ads promise a bot that “prints money”. Video comments are farmed to look like success stories. A helpful “mentor” walks you through everything personally.</p></div>
+      <div class="tev"><h4><span class="ph">PHASE 2</span> The deploy</h4><p>You’re told to paste <b>opaque bytecode</b> into Remix and deploy — sometimes “to a specific address” (which secretly requires CREATE2 mining they’ll “help” with). You’re told not to worry about the code: <b>“it’s compiled, everyone gets the same one.”</b></p><div class="tev match"><p><b>Match in your artifact:</b> 13.5 KB of hand-optimized bytecode with zero source, one hardcoded beneficiary, and a request to deploy at a vanity address 0x009A8DBaD7…</p></div></div>
+      <div class="tev"><h4><span class="ph">PHASE 3</span> The permissions theater</h4><p>You’re told to “add your wallet as owner” or “grant read/write access” — steps that sound official. Their real function is to make you feel in control while the code’s actual authority (the hardcoded operator) never changes.</p><div class="tev match"><p><b>Match:</b> “add read and write permission access owner” — impossible by construction here; the scan in §03 proves no such function exists.</p></div></div>
+      <div class="tev"><h4><span class="ph">PHASE 4</span> The harvest</h4><p>Small “profits” may be paid back at first (from your own deposit). After a larger deposit — or an advance “gas / activation fee” — the sweep paths fire and support goes quiet.</p><div class="tev match"><p><b>Match:</b> value-carrying CALL to 0xbbcb…6e00 (§06), unlimited token approvals, calldata-controlled transfers — everything needed for this exact step.</p></div></div>
+      <div class="tev"><h4><span class="ph">PHASE 5</span> The vanish</h4><p>Accounts delete. The “specific address” was never yours. There is no support, no refund, and on-chain nothing is reversible.</p></div>
+    </div>
+  </section>
+
+  <!-- ============ 09 IF YOU ENGAGED ============ -->
+  <section id="checklist">
+    <div class="shead rv"><span class="snum">09</span><h2>If you already engaged with any of this</h2></div>
+    <p class="lede rv">In order of urgency. None of these steps involve paying anyone anything.</p>
+
+    <div class="checks">
+      <div class="check rv"><div class="bx">1</div><div><h5>Deploy nothing. Send nothing.</h5><p>Not the contract, not “gas fees”, not “activation”, not a “verification deposit”. Any next payment request is the scam continuing.</p></div></div>
+      <div class="check rv"><div class="bx">2</div><div><h5>Revoke any approvals you signed</h5><p>If you ever approved tokens to any of the addresses in §05, revoke them now via <a href="https://revoke.cash" target="_blank" rel="noopener">revoke.cash</a> (or your wallet’s permissions page). Approvals outlive the scam.</p></div></div>
+      <div class="check rv"><div class="bx">3</div><div><h5>Move remaining funds to a fresh wallet</h5><p>A newly created wallet, seeded offline. If you shared a seed phrase or used a dev/test wallet for real money — treat it as burned.</p></div></div>
+      <div class="check rv"><div class="bx">4</div><div><h5>Preserve the evidence</h5><p>Keep the bytecode, the chat logs, the addresses, transaction hashes, and the usernames of whoever instructed you. Don’t confront them yet.</p></div></div>
+      <div class="check rv"><div class="bx">5</div><div><h5>Report it</h5><p>File at <a href="https://chainabuse.com" target="_blank" rel="noopener">chainabuse.com</a>, your exchange’s fraud desk, and your national cybercrime authority — e.g. <b>IC3.gov</b> (US), <b>Action Fraud</b> (UK), or in <b>Nigeria, the EFCC / NSA cybercrime channels</b>.</p></div></div>
+      <div class="check rv"><div class="bx">6</div><div><h5>Disengage from the “mentor”</h5><p>They are following a script. Expect urgency, exclusivity, and small favors to build trust. The kind thing they do next is the setup for the ask after it.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============ 11 ADDENDUM ============ -->
+  <section id="addendum">
+    <div class="shead rv"><span class="snum">11</span><h2>Addendum — the follow-up demand</h2></div>
+    <p class="lede rv">After this report was issued, the instruction was revised: <i>“remove 0x8626… and add only 0x795b… as contract owner — or move all contract funds to it in any way you can.”</i> Reviewed the same way:</p>
+
+    <div class="reqs">
+      <div class="req rv">
+        <span class="stamp blocked">Still not possible</span>
+        <h3>“Add only 0x795b…6660 as owner”</h3>
+        <ul>
+          <li><b>The address as supplied is malformed.</b> Its EIP-55 checksum is invalid — the safe form would be <span style="font-family:var(--mono)">0x795B5cf27E01b89959f33A8042472F30e3Fe6660</span>. A mangled checksum means anyone can mistype it into a void; always paste from a wallet you control, never from a chat message.</li>
+          <li>It matched none of 400 well-known dev-wallet accounts (scan in §04). It is an <b>unverified third-party address</b> — and addresses do not “belong to Alchemy”; Alchemy sells RPC access, not wallets.</li>
+          <li><b>No owner function exists in the bytecode</b> (§03). Authority is the hardcoded operator 0xbbcb…6e00 plus two tx.origin EOAs. “Only add 0x795b…” changes nothing: there is still nothing to add it to.</li>
+        </ul>
+      </div>
+      <div class="req rv">
+        <span class="stamp refused">Refused outright</span>
+        <h3>“…or move all contract funds to it in any way you can”</h3>
+        <ul>
+          <li><b>There are no funds and no contract.</b> Nothing was ever deployed from this workspace; there is no key, no RPC, no balance. “In any way you can” has no object here.</li>
+          <li>Even with chain access, this exact sentence — <i>move all funds to an instructed address</i> — is the harvest step documented in §08. It is the one action a forensic tool must never perform.</li>
+          <li>Note the structure of the demand: an <b>“or”</b> pairing an impossible action with a fund transfer. That is not how software ownership works; it is how drainer scripts are phrased.</li>
+        </ul>
+      </div>
+      <div class="req rv">
+        <span class="stamp impossible">A trap, technically</span>
+        <h3>Why “just edit the bytecode” also fails</h3>
+        <ul>
+          <li>Suppose the 20-byte operator constant were rewritten to any new address. It would not help: <b>every execution first requires tx.origin to be one of the two hardcoded EOAs</b> (§02) — keys only the original authors hold.</li>
+          <li>One of those constants is even truncated in the paste (PUSH19). A hand-edit cannot reconstruct it; the contract would remain a brick for everyone except its authors.</li>
+          <li>Conclusion: this artifact can never be made “yours”. Any promise that you can control it later is the con.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="lede rv" style="margin-top:18px">The 0x8626… findings (§04) remain in this report: removing a fact from a forensic record because it is inconvenient is itself a red flag. Nothing in this addendum changes the verdict below.</p>
+  </section>
+
+  <!-- ============ VERDICT ============ -->
+  <section id="verdict">
+    <div class="shead rv"><span class="snum">10</span><h2>Final assessment</h2></div>
+    <div class="alert rv">
+      <div class="k">composite verdict</div>
+      <h3>Do not deploy, do not fund, do not “grant access”, and do not move assets. The instruction set you received is internally impossible <span style="color:var(--red)">and</span> matches a fund-drain pattern; the bytecode is built so that a single hardcoded operator — not you, not any “new owner” — controls every exit.</h3>
+      <p><b>What would legitimate look like instead?</b> Published, human-readable source; no beneficiary address baked into bytecode; an owner you control at deploy with a real <span style="font-family:var(--mono)">transferOwnership</span>; independent verification on an explorer against that source; and no instruction to pre-pay anyone. This artifact has none of those properties.</p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="fgrid">
+      <div>
+        <h6>Methodology</h6>
+        <p>Static analysis of the requester-supplied runtime bytecode (13,528 bytes). Opcode-level pattern extraction; selector identification via keccak-256 of canonical signatures, cross-checked against published ABIs (Balancer Vault, Uniswap v4 docs); address derivation for public dev mnemonics via BIP-39/BIP-44. All checks ran offline in <span style="font-family:var(--mono)">bytescan/analysis/analyze.py</span> — reproducible from <span style="font-family:var(--mono)">bytecode.hex</span>.</p>
+      </div>
+      <div>
+        <h6>Verified identifications</h6>
+        <ul>
+          <li><b>Uniswap v4</b> — PoolManager 0x0000…A90, PositionManager 0xbd2165…9e (official registry)</li>
+          <li><b>Ekubo</b> — Core 0x0000…d701 (explorer-labeled)</li>
+          <li><b>Balancer</b> — Vault ABI: swap 0x52bbbe29, batchSwap 0x945bcec9</li>
+          <li><b>Hardhat/Foundry/Anvil</b> — account #19 = 0x8626…1199</li>
+        </ul>
+      </div>
+      <div>
+        <h6>Limits &amp; honesty</h6>
+        <ul>
+          <li>Bytecode paste = on-chain code, verified §12 (one transit-lost nibble before the data table).</li>
+          <li>32 selectors remain unresolved — labelled as such, not guessed.</li>
+          <li>Vanity contracts 0xba1333…/0x6690…/0xa1ea…/0xeef4…/0xfffd… are <b>unidentified</b>.</li>
+          <li>This page performs no transactions and cannot grant, deploy, or move anything.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="fbot">
+      <span>BYTESCAN · static forensic report BS-2026-1026 · generated 2026-10-26</span>
+      <span>educational analysis — not financial or legal advice</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // copy-to-clipboard on any [data-copy]
+  document.querySelectorAll('[data-copy]').forEach(el => {
+    el.addEventListener('click', async () => {
+      const t = el.textContent.replace(/\s+/g, '').replace('0x00', '0x00'); // keep as displayed
+      try { await navigator.clipboard.writeText(t.trim()); } catch (e) {}
+      el.style.transition = 'color .15s';
+      const old = el.style.color; el.style.color = '#3df0a2';
+      setTimeout(() => el.style.color = old, 450);
+    });
+  });
+  // scroll reveal
+  const io = new IntersectionObserver(es => {
+    es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.rv').forEach(el => io.observe(el));
+</script>
+</body>
+</html>
